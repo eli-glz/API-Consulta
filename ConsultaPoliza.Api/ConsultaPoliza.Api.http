@@ -1,0 +1,16 @@
+@ConsultaPoliza.Api_HostAddress = http://localhost:5045
+
+GET {{ConsultaPoliza.Api_HostAddress}}/api/ramos
+Accept: application/json
+
+###
+
+GET {{ConsultaPoliza.Api_HostAddress}}/api/polizas?ramo=7&numeroPoliza=1065691&certificado=0&fechaEfecto=2026-07-24
+Accept: application/json
+
+###
+
+GET {{ConsultaPoliza.Api_HostAddress}}/api/polizas/203561
+Accept: application/json
+
+###

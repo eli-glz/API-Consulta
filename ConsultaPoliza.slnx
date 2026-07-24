@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ConsultaPoliza.Api/ConsultaPoliza.Api.csproj" />
+  <Project Path="ConsultaPoliza.WinForms/ConsultaPoliza.WinForms.vbproj" />
+</Solution>
