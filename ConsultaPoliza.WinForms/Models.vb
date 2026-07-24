@@ -23,4 +23,32 @@ Public Class PolicyResponse
     Public Property RamoCodigo As Integer?
     Public Property ProductoCodigo As Integer?
     Public Property FechaEfecto As DateTime?
+    Public Property EstadoDetalle As PolicyStatusResponse
+    Public Property Roles As List(Of PolicyRoleResponse)
+End Class
+
+Public Class PolicyStatusResponse
+    Public Property Estado As String
+    Public Property MotivoAnulacion As String
+    Public Property FechaEfectivaAnulacion As DateTime?
+    Public Property MotivoSuspension As String
+End Class
+
+Public Class PolicyRoleResponse
+    Public Property Rol As String
+    Public Property ClienteCodigo As String
+    Public Property Cliente As String
+    Public Property FechaAnulacion As DateTime?
+    Public Property FechaEfecto As DateTime?
+    Public Property Direcciones As List(Of PolicyRoleAddressResponse)
+End Class
+
+Public Class PolicyRoleAddressResponse
+    Public Property Tipo As String
+    Public Property Direccion As String
+    Public Property CodigoPostal As String
+    Public Property Localidad As String
+    Public Property Provincia As String
+    Public Property Pais As String
+    Public Property Email As String
 End Class

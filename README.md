@@ -1,35 +1,55 @@
 # ConsultaPoliza
 
-Solucion para consultar polizas contra Oracle mediante una Web API ASP.NET Core y una interfaz WinForms en VB.NET.
+Solucion para consultar polizas contra Oracle mediante una API ASP.NET Web API 2 en VB.NET sobre .NET Framework 4.8 y una interfaz WinForms en VB.NET.
 
 ## Proyectos
 
-- `ConsultaPoliza.Api`: API C# con consultas parametrizadas y funciones de `REAGENERALPKG`.
+- `ConsultaPoliza.Api`: API VB.NET Web API 2 (`net48`) con consultas parametrizadas y funciones de `REAGENERALPKG`.
 - `ConsultaPoliza.WinForms`: UI VB.NET con ramo, poliza, certificado y fecha de efecto.
 
-## Configuracion recomendada con User Secrets
+## Configuracion de Oracle
 
-Desde la carpeta `ConsultaPoliza.Api`:
-
-```powershell
-dotnet user-secrets set "OraclePolicy:ConnectionString" "User Id=USUARIO;Password=CLAVE;Data Source=HOST:1521/SERVICIO"
-```
-
-Ejemplo de conexion por SID:
+Para desarrollo local, la API reutiliza el User Secret
+`OraclePolicy:ConnectionString` identificado por `consulta-poliza-api-dev`. Se
+puede configurar sin guardar la clave en el repositorio:
 
 ```powershell
-dotnet user-secrets set "OraclePolicy:ConnectionString" "User Id=USUARIO;Password=CLAVE;Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=HOST_ORACLE)(PORT=1521))(CONNECT_DATA=(SID=SID_ORACLE)))"
+dotnet user-secrets set "OraclePolicy:ConnectionString" "CADENA_DE_CONEXION" --project .\ConsultaPoliza.Api\ConsultaPoliza.Api.vbproj
 ```
+
+La variable de entorno `ORACLE_POLICY_CONNECTION` tiene prioridad y es la opcion
+recomendada para despliegues:
+
+```powershell
+$env:ORACLE_POLICY_CONNECTION = "CADENA_DE_CONEXION"
+```
+
+Tambien se puede configurar `OraclePolicy:ConnectionString` en `Web.config`,
+`OraclePolicy.ConnectionString` en `appSettings`, o una cadena llamada
+`OraclePolicy` en `connectionStrings`, pero no guardar credenciales reales en el
+repositorio.
 
 ## Ejecutar
 
 ```powershell
 dotnet restore .\ConsultaPoliza.slnx
-dotnet run --project .\ConsultaPoliza.Api\ConsultaPoliza.Api.csproj --launch-profile http
+dotnet build .\ConsultaPoliza.slnx
+```
+
+La API Web API 2 se hospeda con IIS Express:
+
+```powershell
+$apiPath = (Resolve-Path .\ConsultaPoliza.Api).Path
+& "C:\Program Files\IIS Express\iisexpress.exe" "/path:$apiPath" /port:5045
+```
+
+En otra terminal:
+
+```powershell
 dotnet run --project .\ConsultaPoliza.WinForms\ConsultaPoliza.WinForms.vbproj
 ```
 
-La UI usa por defecto `http://localhost:5045`, que coincide con el perfil `http` de la API.
+La UI usa por defecto `http://localhost:5045`, que coincide con el puerto de IIS Express indicado arriba.
 
 ## Probar la API
 
