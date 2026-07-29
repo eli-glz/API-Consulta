@@ -29,7 +29,9 @@ Namespace ConsultaPoliza.Api.Services
             "       NC.SDESCRIPT AS NULL_DESCRIPTION, " &
             "       COALESCE(CE.DNULLDATE, PO.DNULLDATE) AS NULL_DATE, " &
             "       CE.NSUS_REASON AS SUSPENSION_REASON_CODE, " &
-            "       SR.SDESCRIPT AS SUSPENSION_REASON_DESCRIPTION " &
+            "       SR.SDESCRIPT AS SUSPENSION_REASON_DESCRIPTION, " &
+            "       COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) AS PAY_FREQUENCY_CODE, " &
+            "       PF.SDESCRIPT AS PAY_FREQUENCY_DESCRIPTION " &
             "  FROM POLICY PO " &
             "  INNER JOIN CERTIFICAT CE " &
             "          ON CE.NBRANCH = PO.NBRANCH " &
@@ -54,6 +56,9 @@ Namespace ConsultaPoliza.Api.Services
             "  LEFT JOIN TABLE5566 SR " &
             "         ON SR.NSUS_REASON = CE.NSUS_REASON " &
             "        AND SR.SSTATREGT = '1' " &
+            "  LEFT JOIN TABLE36 PF " &
+            "         ON PF.NPAYFREQ = COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) " &
+            "        AND PF.SSTATREGT = '1' " &
             " WHERE PO.NPOLICY = :policyNumber " &
             " ORDER BY CASE WHEN CE.NCERTIF = 0 THEN 0 ELSE 1 END, CE.NCERTIF " &
             " FETCH FIRST 1 ROWS ONLY"
@@ -70,7 +75,9 @@ Namespace ConsultaPoliza.Api.Services
             "       NC.SDESCRIPT AS NULL_DESCRIPTION, " &
             "       COALESCE(CE.DNULLDATE, PO.DNULLDATE) AS NULL_DATE, " &
             "       CE.NSUS_REASON AS SUSPENSION_REASON_CODE, " &
-            "       SR.SDESCRIPT AS SUSPENSION_REASON_DESCRIPTION " &
+            "       SR.SDESCRIPT AS SUSPENSION_REASON_DESCRIPTION, " &
+            "       COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) AS PAY_FREQUENCY_CODE, " &
+            "       PF.SDESCRIPT AS PAY_FREQUENCY_DESCRIPTION " &
             "  FROM POLICY PO " &
             "  INNER JOIN CERTIFICAT CE " &
             "          ON CE.NBRANCH = PO.NBRANCH " &
@@ -95,6 +102,9 @@ Namespace ConsultaPoliza.Api.Services
             "  LEFT JOIN TABLE5566 SR " &
             "         ON SR.NSUS_REASON = CE.NSUS_REASON " &
             "        AND SR.SSTATREGT = '1' " &
+            "  LEFT JOIN TABLE36 PF " &
+            "         ON PF.NPAYFREQ = COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) " &
+            "        AND PF.SSTATREGT = '1' " &
             " WHERE PO.NBRANCH = :branchCode " &
             "   AND PO.NPOLICY = :policyNumber " &
             "   AND CE.NCERTIF = :certificateNumber " &
@@ -190,7 +200,9 @@ Namespace ConsultaPoliza.Api.Services
                                 GetString(reader, "NULL_DESCRIPTION"),
                                 GetDateTime(reader, "NULL_DATE"),
                                 GetIntOrNull(reader, "SUSPENSION_REASON_CODE"),
-                                GetString(reader, "SUSPENSION_REASON_DESCRIPTION"))
+                                GetString(reader, "SUSPENSION_REASON_DESCRIPTION"),
+                                GetIntOrNull(reader, "PAY_FREQUENCY_CODE"),
+                                GetString(reader, "PAY_FREQUENCY_DESCRIPTION"))
                         End Using
                     End Using
 

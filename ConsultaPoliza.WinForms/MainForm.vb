@@ -400,9 +400,10 @@ Public Class MainForm
         AddDetailRow(detailLayout, 5, "Asegurado", _currentPolicy.Asegurado)
         AddDetailRow(detailLayout, 6, "Inicio de vigencia", FormatDate(_currentPolicy.VigenciaDesde))
         AddDetailRow(detailLayout, 7, "Fin de vigencia", FormatDate(_currentPolicy.VigenciaHasta))
-        AddDetailRow(detailLayout, 8, "Numero cliente", _currentPolicy.NumeroCliente)
-        AddDetailRow(detailLayout, 9, "Cobertura principal", FormatNullableInteger(_currentPolicy.CoberturaPrincipal))
-        AddDetailRow(detailLayout, 10, "Fecha de efecto", FormatDate(_currentPolicy.FechaEfecto))
+        AddDetailRow(detailLayout, 8, "Frecuencia de pago", _currentPolicy.FrecuenciaPago)
+        AddDetailRow(detailLayout, 9, "Numero cliente", _currentPolicy.NumeroCliente)
+        AddDetailRow(detailLayout, 10, "Cobertura principal", FormatNullableInteger(_currentPolicy.CoberturaPrincipal))
+        AddDetailRow(detailLayout, 11, "Fecha de efecto", FormatDate(_currentPolicy.FechaEfecto))
 
         section.Controls.Add(detailLayout, 0, 1)
         SetContent(section)

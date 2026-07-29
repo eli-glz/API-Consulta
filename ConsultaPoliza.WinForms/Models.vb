@@ -23,6 +23,7 @@ Public Class PolicyResponse
     Public Property RamoCodigo As Integer?
     Public Property ProductoCodigo As Integer?
     Public Property FechaEfecto As DateTime?
+    Public Property FrecuenciaPago As String
     Public Property EstadoDetalle As PolicyStatusResponse
     Public Property Roles As List(Of PolicyRoleResponse)
 End Class

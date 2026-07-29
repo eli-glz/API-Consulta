@@ -18,7 +18,9 @@ Namespace ConsultaPoliza.Api.Models
             motivoAnulacionDescripcion As String,
             fechaAnulacion As DateTime?,
             motivoSuspensionCodigo As Integer?,
-            motivoSuspensionDescripcion As String)
+            motivoSuspensionDescripcion As String,
+            frecuenciaPagoCodigo as Integer?,
+            frecuenciaPagoDescripcion as String)
 
             Me.NumeroPoliza = numeroPoliza
             Me.NumeroCertificado = numeroCertificado
@@ -38,6 +40,8 @@ Namespace ConsultaPoliza.Api.Models
             Me.FechaAnulacion = fechaAnulacion
             Me.MotivoSuspensionCodigo = motivoSuspensionCodigo
             Me.MotivoSuspensionDescripcion = motivoSuspensionDescripcion
+            Me.FrecuenciaPagoCodigo = frecuenciaPagoCodigo
+            Me.FrecuenciaPagoDescripcion = frecuenciaPagoDescripcion
         End Sub
 
         Public ReadOnly Property NumeroPoliza As Long
@@ -58,5 +62,7 @@ Namespace ConsultaPoliza.Api.Models
         Public ReadOnly Property FechaAnulacion As DateTime?
         Public ReadOnly Property MotivoSuspensionCodigo As Integer?
         Public ReadOnly Property MotivoSuspensionDescripcion As String
+        Public ReadOnly Property FrecuenciaPagoCodigo As Integer?
+        Public ReadOnly Property FrecuenciaPagoDescripcion As String
     End Class
 End Namespace

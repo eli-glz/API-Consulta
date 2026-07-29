@@ -114,6 +114,7 @@ Namespace ConsultaPoliza.Api.Services
                 policy.RamoCodigo,
                 policy.ProductoCodigo,
                 effectiveDate,
+                FormatCodeDescription(policy.FrecuenciaPagoCodigo, policy.FrecuenciaPagoDescripcion),
                 statusDetail,
                 roles)
         End Function

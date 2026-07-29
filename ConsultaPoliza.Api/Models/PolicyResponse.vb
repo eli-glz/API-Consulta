@@ -17,6 +17,7 @@ Namespace ConsultaPoliza.Api.Models
             ramoCodigo As Integer?,
             productoCodigo As Integer?,
             fechaEfecto As DateTime?,
+            frecuenciaPago As String,
             estadoDetalle As PolicyStatusResponse,
             roles As List(Of PolicyRoleResponse))
 
@@ -33,6 +34,7 @@ Namespace ConsultaPoliza.Api.Models
             Me.RamoCodigo = ramoCodigo
             Me.ProductoCodigo = productoCodigo
             Me.FechaEfecto = fechaEfecto
+            Me.FrecuenciaPago = frecuenciaPago
             Me.EstadoDetalle = estadoDetalle
             Me.Roles = If(roles, New List(Of PolicyRoleResponse)())
         End Sub
@@ -50,6 +52,7 @@ Namespace ConsultaPoliza.Api.Models
         Public Property RamoCodigo As Integer?
         Public Property ProductoCodigo As Integer?
         Public Property FechaEfecto As DateTime?
+        Public Property FrecuenciaPago As String = ""
         Public Property EstadoDetalle As PolicyStatusResponse
         Public Property Roles As List(Of PolicyRoleResponse) = New List(Of PolicyRoleResponse)()
     End Class
