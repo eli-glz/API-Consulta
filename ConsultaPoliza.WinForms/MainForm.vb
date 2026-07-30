@@ -1,5 +1,7 @@
 Imports System.Data
 Imports System.Globalization
+Imports System.IO
+Imports ConsultaPoliza.WinForms.Exporting
 
 Public Class MainForm
     Inherits Form
@@ -31,8 +33,15 @@ Public Class MainForm
     Private ReadOnly _statusLabel As New Label()
     Private ReadOnly _navigationTree As New TreeView()
     Private ReadOnly _contentPanel As New Panel()
+    Private ReadOnly _exportToolTip As New ToolTip()
+    Private ReadOnly _csvExportButton As New Button()
+    Private ReadOnly _excelExportButton As New Button()
+    Private ReadOnly _pdfExportButton As New Button()
+    Private ReadOnly _rtfExportButton As New Button()
 
     Private _currentPolicy As PolicyResponse
+    Private _currentExportTitle As String = ""
+    Private _currentExportTable As DataTable
 
     Public Sub New(apiClient As ApiClient)
         _apiClient = apiClient
@@ -80,7 +89,7 @@ Public Class MainForm
         AddHandler split.SizeChanged, AddressOf ResultsSplit_SizeChanged
         split.Panel1.Padding = New Padding(0, 0, 8, 0)
         split.Panel1.Controls.Add(_navigationTree)
-        split.Panel2.Controls.Add(_contentPanel)
+        split.Panel2.Controls.Add(CreateResultsLayout())
 
         root.Controls.Add(searchLayout, 0, 0)
         root.Controls.Add(_statusLabel, 0, 1)
@@ -91,6 +100,89 @@ Public Class MainForm
 
         InitializeNavigationTree(Nothing)
         ShowNoPolicySelected()
+    End Sub
+
+    Private Function CreateResultsLayout() As TableLayoutPanel
+        Dim layout As New TableLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .ColumnCount = 1,
+            .RowCount = 2,
+            .Margin = New Padding(0),
+            .BackColor = Color.White
+        }
+
+        layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 40))
+
+        Dim exportHost As New Panel With {
+            .Dock = DockStyle.Fill,
+            .BackColor = Color.White
+        }
+
+        Dim exportBar As New FlowLayoutPanel With {
+            .Dock = DockStyle.Right,
+            .AutoSize = True,
+            .FlowDirection = FlowDirection.LeftToRight,
+            .WrapContents = False,
+            .Padding = New Padding(0, 5, 0, 0)
+        }
+
+        Dim exportLabel As New Label With {
+            .Text = "Exportar a:",
+            .AutoSize = True,
+            .Margin = New Padding(0, 5, 8, 0)
+        }
+
+        ConfigureExportButton(
+            _csvExportButton,
+            "CSV",
+            "Exportar a CSV",
+            AddressOf CsvExportButton_Click)
+
+        ConfigureExportButton(
+            _excelExportButton,
+            "XLSX",
+            "Exportar a Excel",
+            AddressOf ExcelExportButton_Click)
+
+        ConfigureExportButton(
+            _pdfExportButton,
+            "PDF",
+            "Exportar a PDF",
+            AddressOf PdfExportButton_Click)
+
+        ConfigureExportButton(
+            _rtfExportButton,
+            "RTF",
+            "Exportar a RTF",
+            AddressOf RtfExportButton_Click)
+
+        exportBar.Controls.Add(exportLabel)
+        exportBar.Controls.Add(_csvExportButton)
+        exportBar.Controls.Add(_excelExportButton)
+        exportBar.Controls.Add(_pdfExportButton)
+        exportBar.Controls.Add(_rtfExportButton)
+
+        exportHost.Controls.Add(exportBar)
+        layout.Controls.Add(_contentPanel, 0, 0)
+        layout.Controls.Add(exportHost, 0, 1)
+
+        Return layout
+    End Function
+
+    Private Sub ConfigureExportButton(
+        button As Button,
+        text As String,
+        toolTip As String,
+        clickHandler As EventHandler)
+
+        button.Text = text
+        button.Size = New Size(58, 28)
+        button.Enabled = False
+        button.Margin = New Padding(2)
+
+        _exportToolTip.SetToolTip(button, toolTip)
+        AddHandler button.Click, clickHandler
     End Sub
 
     Private Sub ResultsSplit_SizeChanged(sender As Object, e As EventArgs)
@@ -407,7 +499,41 @@ Public Class MainForm
 
         section.Controls.Add(detailLayout, 0, 1)
         SetContent(section)
+        SetExportData("Poliza", BuildPolicyExportTable())
     End Sub
+
+    Private Function BuildPolicyExportTable() As DataTable
+        Dim table As New DataTable("Poliza")
+
+        table.Columns.Add("Ramo")
+        table.Columns.Add("Poliza")
+        table.Columns.Add("Certificado")
+        table.Columns.Add("Producto")
+        table.Columns.Add("Estado")
+        table.Columns.Add("Asegurado")
+        table.Columns.Add("Inicio de vigencia")
+        table.Columns.Add("Fin de vigencia")
+        table.Columns.Add("Frecuencia de pago")
+        table.Columns.Add("Numero cliente")
+        table.Columns.Add("Cobertura principal")
+        table.Columns.Add("Fecha de efecto")
+
+        table.Rows.Add(
+            FormatCodeDescription(_currentPolicy.RamoCodigo, _currentPolicy.Ramo),
+            _currentPolicy.NumeroPoliza,
+            FormatNullableInteger(_currentPolicy.NumeroCertificado),
+            FormatCodeDescription(_currentPolicy.ProductoCodigo, _currentPolicy.Producto),
+            _currentPolicy.Estado,
+            _currentPolicy.Asegurado,
+            FormatDate(_currentPolicy.VigenciaDesde),
+            FormatDate(_currentPolicy.VigenciaHasta),
+            _currentPolicy.FrecuenciaPago,
+            _currentPolicy.NumeroCliente,
+            FormatNullableInteger(_currentPolicy.CoberturaPrincipal),
+            FormatDate(_currentPolicy.FechaEfecto))
+
+        Return table
+    End Function
 
     Private Sub ShowStatusSection()
         Dim rows As New List(Of String())()
@@ -509,53 +635,75 @@ Public Class MainForm
     Private Sub ShowUnavailableSection(title As String)
         Dim section = CreateSectionLayout(title)
         section.Controls.Add(CreateEmptyStateLabel("No hay datos disponibles para esta seccion con la respuesta actual de la API."), 0, 1)
+        SetExportData("", Nothing)
         SetContent(section)
     End Sub
 
     Private Sub ShowNoPolicySelected()
         Dim section = CreateSectionLayout("Poliza")
         section.Controls.Add(CreateEmptyStateLabel("Ingrese una poliza y presione OK para ver el menu lateral."), 0, 1)
+        SetExportData("", Nothing)
         SetContent(section)
     End Sub
 
-    Private Sub ShowGridSection(title As String, columns As String(), rows As List(Of String()))
+    Private Sub ShowGridSection(
+        title As String,
+        columns As String(),
+        rows As List(Of String()))
+
         If rows.Count = 0 Then
             ShowUnavailableSection(title)
             Return
         End If
 
+        Dim table = CreateExportTable(title, columns, rows)
         Dim section = CreateSectionLayout(title)
+
         Dim grid As New DataGridView With {
             .Dock = DockStyle.Fill,
             .AllowUserToAddRows = False,
             .AllowUserToDeleteRows = False,
             .AllowUserToResizeRows = False,
+            .AutoGenerateColumns = True,
             .AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             .BackgroundColor = Color.White,
             .BorderStyle = BorderStyle.None,
-            .ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
+            .ColumnHeadersHeightSizeMode =
+                DataGridViewColumnHeadersHeightSizeMode.AutoSize,
             .ReadOnly = True,
             .RowHeadersVisible = False,
-            .SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            .DataSource = table
         }
 
-        For Each columnName In columns
-            grid.Columns.Add(New DataGridViewTextBoxColumn With {
-                .HeaderText = columnName,
-                .Name = columnName,
-                .SortMode = DataGridViewColumnSortMode.NotSortable
-            })
-        Next
-
-        For Each row In rows
-            Dim values(row.Length - 1) As Object
-            Array.Copy(row, values, row.Length)
-            grid.Rows.Add(values)
+        For Each column As DataGridViewColumn In grid.Columns
+            column.SortMode = DataGridViewColumnSortMode.NotSortable
         Next
 
         section.Controls.Add(grid, 0, 1)
         SetContent(section)
+        SetExportData(title, table)
     End Sub
+
+    Private Shared Function CreateExportTable(
+        title As String,
+        columns As String(),
+        rows As List(Of String())) As DataTable
+
+        Dim table As New DataTable(title)
+
+        For Each columnName In columns
+            table.Columns.Add(columnName)
+        Next
+
+        For Each sourceRow In rows
+            Dim values(sourceRow.Length - 1) As Object
+            Array.Copy(sourceRow, values, sourceRow.Length)
+            table.Rows.Add(values)
+        Next
+
+        Return table
+    End Function
 
     Private Function CreateSectionLayout(title As String) As TableLayoutPanel
         Dim section As New TableLayoutPanel With {
@@ -636,6 +784,10 @@ Public Class MainForm
         _effectiveDatePicker.Enabled = Not isBusy
         _searchButton.Enabled = Not isBusy AndAlso _branchComboBox.Items.Count > 0
         _navigationTree.Enabled = Not isBusy AndAlso _currentPolicy IsNot Nothing
+        SetExportButtonsEnabled(
+            Not isBusy AndAlso
+            _currentExportTable IsNot Nothing AndAlso
+            _currentExportTable.Rows.Count > 0)
 
         If Not String.IsNullOrWhiteSpace(message) Then
             SetStatus(message)
@@ -648,6 +800,116 @@ Public Class MainForm
             isError,
             Color.Firebrick,
             If(String.IsNullOrWhiteSpace(message), Color.DimGray, Color.DarkGreen))
+    End Sub
+
+    Private Sub CsvExportButton_Click(sender As Object, e As EventArgs)
+        ExportCurrent(
+            ".csv",
+            "Archivo CSV (*.csv)|*.csv",
+            AddressOf ExportService.ExportCsv)
+    End Sub
+
+    Private Sub ExcelExportButton_Click(sender As Object, e As EventArgs)
+        ExportCurrent(
+            ".xlsx",
+            "Libro de Excel (*.xlsx)|*.xlsx",
+            AddressOf ExportService.ExportExcel)
+    End Sub
+
+    Private Sub PdfExportButton_Click(sender As Object, e As EventArgs)
+        ExportCurrent(
+            ".pdf",
+            "Documento PDF (*.pdf)|*.pdf",
+            AddressOf ExportService.ExportPdf)
+    End Sub
+
+    Private Sub RtfExportButton_Click(sender As Object, e As EventArgs)
+        ExportCurrent(
+            ".rtf",
+            "Documento RTF (*.rtf)|*.rtf",
+            AddressOf ExportService.ExportRtf)
+    End Sub
+
+    Private Sub ExportCurrent(
+        extension As String,
+        filter As String,
+        exporter As Action(Of String, DataTable, String))
+
+        If _currentExportTable Is Nothing OrElse
+        _currentExportTable.Rows.Count = 0 Then
+
+            SetStatus("No hay datos visibles para exportar.", True)
+            Return
+        End If
+
+        Using dialog As New SaveFileDialog With {
+            .Filter = filter,
+            .DefaultExt = extension.TrimStart("."c),
+            .AddExtension = True,
+            .FileName = BuildExportFileName(extension),
+            .Title = "Exportar " & _currentExportTitle
+        }
+            If dialog.ShowDialog(Me) <> DialogResult.OK Then
+                Return
+            End If
+
+            Try
+                exporter(
+                    _currentExportTitle,
+                    _currentExportTable,
+                    dialog.FileName)
+
+                SetStatus(
+                    "Exportacion creada: " &
+                    Path.GetFileName(dialog.FileName))
+            Catch ex As Exception
+                SetStatus(
+                    "No se pudo crear la exportacion: " & ex.Message,
+                    True)
+            End Try
+        End Using
+    End Sub
+
+    Private Function BuildExportFileName(extension As String) As String
+        Dim policyNumber = "sin_poliza"
+
+        If _currentPolicy IsNot Nothing AndAlso
+        Not String.IsNullOrWhiteSpace(_currentPolicy.NumeroPoliza) Then
+
+            policyNumber = _currentPolicy.NumeroPoliza.Trim()
+        End If
+
+        Dim fileName =
+            "Poliza_" &
+            policyNumber &
+            "_" &
+            If(_currentExportTitle, "Datos") &
+            "_" &
+            DateTime.Now.ToString("yyyyMMdd_HHmmss") &
+            extension
+
+        For Each invalidCharacter In Path.GetInvalidFileNameChars()
+            fileName = fileName.Replace(invalidCharacter, "_"c)
+        Next
+
+        Return fileName
+    End Function
+
+    Private Sub SetExportData(title As String, table As DataTable)
+        _currentExportTitle = If(title, "")
+        _currentExportTable = table
+
+        SetExportButtonsEnabled(
+            table IsNot Nothing AndAlso
+            table.Columns.Count > 0 AndAlso
+            table.Rows.Count > 0)
+    End Sub
+
+    Private Sub SetExportButtonsEnabled(enabled As Boolean)
+        _csvExportButton.Enabled = enabled
+        _excelExportButton.Enabled = enabled
+        _pdfExportButton.Enabled = enabled
+        _rtfExportButton.Enabled = enabled
     End Sub
 
     Private Sub ClearResult()
