@@ -1,6 +1,7 @@
 Imports System.Data
 Imports System.Globalization
 Imports System.IO
+Imports System.Linq
 Imports ConsultaPoliza.WinForms.Exporting
 
 Public Class MainForm
@@ -42,6 +43,7 @@ Public Class MainForm
     Private _currentPolicy As PolicyResponse
     Private _currentExportTitle As String = ""
     Private _currentExportTable As DataTable
+    Private _currentExportGrid As DataGridView
 
     Public Sub New(apiClient As ApiClient)
         _apiClient = apiClient
@@ -672,6 +674,7 @@ Public Class MainForm
                 DataGridViewColumnHeadersHeightSizeMode.AutoSize,
             .ReadOnly = True,
             .RowHeadersVisible = False,
+            .MultiSelect = True,
             .SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             .DataSource = table
         }
@@ -682,7 +685,9 @@ Public Class MainForm
 
         section.Controls.Add(grid, 0, 1)
         SetContent(section)
-        SetExportData(title, table)
+        grid.CurrentCell = Nothing
+        grid.ClearSelection()
+        SetExportData(title, table, grid)
     End Sub
 
     Private Shared Function CreateExportTable(
@@ -830,6 +835,37 @@ Public Class MainForm
             AddressOf ExportService.ExportRtf)
     End Sub
 
+    Private Function CreateSelectedExportTable() As DataTable
+        If _currentExportTable Is Nothing Then
+            Return Nothing
+        End If
+
+        If _currentExportGrid Is Nothing Then
+            Return _currentExportTable.Copy()
+        End If
+
+        If _currentExportGrid.SelectedRows.Count = 0 Then
+            Return Nothing
+        End If
+
+        Dim selectedTable = _currentExportTable.Clone()
+
+        Dim selectedRows = _currentExportGrid.SelectedRows.
+            Cast(Of DataGridViewRow)().
+            OrderBy(Function(row) row.Index).
+            ToList()
+
+        For Each gridRow In selectedRows
+            Dim rowView = TryCast(gridRow.DataBoundItem, DataRowView)
+
+            If rowView IsNot Nothing Then
+                selectedTable.ImportRow(rowView.Row)
+            End If
+        Next
+
+        Return selectedTable
+    End Function
+
     Private Sub ExportCurrent(
         extension As String,
         filter As String,
@@ -839,6 +875,13 @@ Public Class MainForm
         _currentExportTable.Rows.Count = 0 Then
 
             SetStatus("No hay datos visibles para exportar.", True)
+            Return
+        End If
+
+        Dim tableToExport = CreateSelectedExportTable()
+
+        If tableToExport Is Nothing OrElse tableToExport.Rows.Count = 0 Then
+            SetStatus("Seleccione al menos una fila para exportar.", True)
             Return
         End If
 
@@ -856,7 +899,7 @@ Public Class MainForm
             Try
                 exporter(
                     _currentExportTitle,
-                    _currentExportTable,
+                    tableToExport,
                     dialog.FileName)
 
                 SetStatus(
@@ -895,9 +938,10 @@ Public Class MainForm
         Return fileName
     End Function
 
-    Private Sub SetExportData(title As String, table As DataTable)
+    Private Sub SetExportData(title As String, table As DataTable, Optional grid As DataGridView = Nothing)
         _currentExportTitle = If(title, "")
         _currentExportTable = table
+        _currentExportGrid = grid
 
         SetExportButtonsEnabled(
             table IsNot Nothing AndAlso
