@@ -21,6 +21,8 @@ Public Class MainForm
     Private Const NodeDiscounts As String = "discounts"
     Private Const NodeMovements As String = "movements"
     Private Const NodeReceipts As String = "receipts"
+    Private Const NodeReceipt As String = "receipt"
+    Private Const ReceiptsPageSize As Integer = 10
     Private Const NodePolicyAddress As String = "policy-address"
     Private Const NodePolicyAddressItem As String = "policy-address-item"
     Private Const NodePhones As String = "phones"
@@ -44,6 +46,7 @@ Public Class MainForm
     Private _currentExportTitle As String = ""
     Private _currentExportTable As DataTable
     Private _currentExportGrid As DataGridView
+    Private _receiptsPageIndex As Integer
 
     Public Sub New(apiClient As ApiClient)
         _apiClient = apiClient
@@ -114,7 +117,7 @@ Public Class MainForm
         }
 
         layout.RowStyles.Add(New RowStyle(SizeType.Percent, 100))
-        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 40))
+        layout.RowStyles.Add(New RowStyle(SizeType.Absolute, 50))
 
         Dim exportHost As New Panel With {
             .Dock = DockStyle.Fill,
@@ -179,7 +182,8 @@ Public Class MainForm
         clickHandler As EventHandler)
 
         button.Text = text
-        button.Size = New Size(58, 28)
+        button.Size = New Size(64, 36)
+        button.TextAlign = ContentAlignment.MiddleCenter
         button.Enabled = False
         button.Margin = New Padding(2)
 
@@ -331,8 +335,29 @@ Public Class MainForm
         policyNode.Nodes.Add(CreateNode("Clausulas", NodeClauses))
         policyNode.Nodes.Add(CreateNode("Descuentos / Recargos", NodeDiscounts))
         policyNode.Nodes.Add(CreateNode("Movimientos historicos", NodeMovements))
-        policyNode.Nodes.Add(CreateNode("Recibos", NodeReceipts))
+        
+        Dim receiptsNode = CreateNode("Recibos", NodeReceipts)
+        If policy IsNot Nothing AndAlso
+        policy.Recibos IsNot Nothing AndAlso
+        policy.Recibos.Count > 0 Then
 
+            For Each receipt In policy.Recibos
+                If receipt Is Nothing Then
+                    Continue For
+                End If
+
+                Dim receiptText =
+                    "Recibo " &
+                    receipt.NumeroRecibo.ToString(
+                        CultureInfo.InvariantCulture)
+
+                receiptsNode.Nodes.Add(
+                    CreateNode(receiptText, NodeReceipt))
+            Next
+        End If
+
+        policyNode.Nodes.Add(receiptsNode)
+        
         Dim addressNode = CreateNode("Direccion de poliza", NodePolicyAddress)
         Dim addressItemNode = CreateNode("Direccion de poliza 1", NodePolicyAddressItem)
         addressItemNode.Nodes.Add(CreateNode("Telefonos", NodePhones))
@@ -429,6 +454,7 @@ Public Class MainForm
             End If
 
             _currentPolicy = policy
+            _receiptsPageIndex = 0
             InitializeNavigationTree(policy)
             ShowPolicyOverview()
             SetStatus("Consulta realizada.")
@@ -457,9 +483,14 @@ Public Class MainForm
                 ShowCoveragesSection()
             Case NodeRoleDirections
                 ShowRoleDirectionsSection(e.Node)
-            Case NodeIntermediaries, NodeDirectDebits, NodeClauses, NodeDiscounts,
-                 NodeMovements, NodeReceipts, NodePolicyAddress,
-                 NodePolicyAddressItem, NodePhones
+            Case NodeReceipts
+                _receiptsPageIndex = 0
+                ShowReceiptsSection()
+            Case NodeReceipt
+                ShowReceiptsSection(e.Node.Index)
+            Case NodeIntermediaries, NodeDirectDebits, NodeClauses,
+                NodeDiscounts, NodeMovements, NodePolicyAddress,
+                NodePolicyAddressItem, NodePhones
                 ShowUnavailableSection(e.Node.Text)
             Case Else
                 ShowPolicyOverview()
@@ -634,6 +665,170 @@ Public Class MainForm
             rows)
     End Sub
 
+    Private Sub ShowReceiptsSection(
+        Optional selectedReceiptIndex As Integer? = Nothing)
+
+        If _currentPolicy.Recibos Is Nothing OrElse
+        _currentPolicy.Recibos.Count = 0 Then
+
+            ShowUnavailableSection("Recibos")
+            Return
+        End If
+
+        Dim totalItems = _currentPolicy.Recibos.Count
+        Dim totalPages =
+            CInt(Math.Ceiling(totalItems / CDbl(ReceiptsPageSize)))
+
+        If selectedReceiptIndex.HasValue Then
+            _receiptsPageIndex =
+                selectedReceiptIndex.Value \ ReceiptsPageSize
+        End If
+
+        _receiptsPageIndex =
+            Math.Max(0, Math.Min(_receiptsPageIndex, totalPages - 1))
+
+        Dim pageReceipts = _currentPolicy.Recibos.
+            Skip(_receiptsPageIndex * ReceiptsPageSize).
+            Take(ReceiptsPageSize).
+            ToList()
+
+        Dim rows As New List(Of String())()
+
+        For Each receipt In pageReceipts
+            rows.Add(New String() {
+                receipt.NumeroRecibo.ToString(CultureInfo.InvariantCulture),
+                FormatDate(receipt.FechaEmision),
+                FormatDate(receipt.InicioVigencia),
+                FormatDate(receipt.FinVigencia),
+                FormatDate(receipt.FechaUltimoPago),
+                FormatDate(receipt.FechaVencimiento),
+                If(receipt.Moneda, "").Trim(),
+                FormatAmount(receipt.Premio),
+                FormatAmount(receipt.Saldo),
+                If(receipt.Estado, "").Trim(),
+                FormatDate(receipt.FechaAnulacion),
+                If(receipt.CodigoAnulacion, "").Trim(),
+                If(receipt.Situacion, "").Trim(),
+                FormatDate(receipt.FechaSegundoVencimiento)
+            })
+        Next
+
+        ShowGridSection(
+            "Recibos",
+            New String() {
+                "Recibo", "Emision", "Inicio vig.", "Fin vig.",
+                "Ultimo pago", "Fec. Vto.", "Moneda", "Premio",
+                "Saldo", "Estado", "Fecha anulacion",
+                "Codigo anulacion", "Situacion del Recibo",
+                "Fec. 2do Vto."
+            },
+            rows,
+            CreateReceiptsPager(totalItems, totalPages))
+
+        If _currentExportGrid IsNot Nothing Then
+            _currentExportGrid.AutoSizeColumnsMode =
+                DataGridViewAutoSizeColumnsMode.DisplayedCells
+
+            For Each column As DataGridViewColumn In _currentExportGrid.Columns
+                column.MinimumWidth = 90
+            Next
+        End If
+
+        If selectedReceiptIndex.HasValue AndAlso
+        _currentExportGrid IsNot Nothing Then
+
+            Dim localIndex =
+                selectedReceiptIndex.Value Mod ReceiptsPageSize
+
+            If localIndex >= 0 AndAlso
+            localIndex < _currentExportGrid.Rows.Count Then
+
+                _currentExportGrid.ClearSelection()
+                _currentExportGrid.Rows(localIndex).Selected = True
+                _currentExportGrid.CurrentCell =
+                    _currentExportGrid.Rows(localIndex).Cells(0)
+            End If
+        End If
+    End Sub
+
+    Private Function CreateReceiptsPager(
+        totalItems As Integer,
+        totalPages As Integer) As Control
+
+        Dim pager As New FlowLayoutPanel With {
+            .Dock = DockStyle.Fill,
+            .FlowDirection = FlowDirection.LeftToRight,
+            .WrapContents = False,
+            .AutoScroll = True,
+            .Padding = New Padding(6, 5, 6, 3),
+            .BackColor = Color.White
+        }
+
+        pager.Controls.Add(New Label With {
+            .AutoSize = True,
+            .Text =
+                "Pagina " & (_receiptsPageIndex + 1).ToString() &
+                " de " & totalPages.ToString() &
+                " (" & totalItems.ToString() & " elementos)",
+            .Margin = New Padding(0, 9, 10, 0)
+        })
+
+        Dim previousButton As New Button With {
+            .Text = "<",
+            .Width = 32,
+            .Height = 36,
+            .Enabled = _receiptsPageIndex > 0,
+            .Margin = New Padding(2, 0, 2, 0)
+        }
+
+        AddHandler previousButton.Click,
+            Sub(sender, e)
+                ChangeReceiptsPage(_receiptsPageIndex - 1)
+            End Sub
+
+        pager.Controls.Add(previousButton)
+
+        For pageNumber = 1 To totalPages
+            Dim targetPage = pageNumber - 1
+
+            Dim pageButton As New Button With {
+                .Text = pageNumber.ToString(),
+                .Width = 34,
+                .Height = 36,
+                .Enabled = targetPage <> _receiptsPageIndex,
+                .Margin = New Padding(2, 0, 2, 0)
+            }
+
+            AddHandler pageButton.Click,
+                Sub(sender, e)
+                    ChangeReceiptsPage(targetPage)
+                End Sub
+
+            pager.Controls.Add(pageButton)
+        Next
+
+        Dim nextButton As New Button With {
+            .Text = ">",
+            .Width = 32,
+            .Height = 36,
+            .Enabled = _receiptsPageIndex < totalPages - 1,
+            .Margin = New Padding(2, 0, 2, 0)
+        }
+
+        AddHandler nextButton.Click,
+            Sub(sender, e)
+                ChangeReceiptsPage(_receiptsPageIndex + 1)
+            End Sub
+
+        pager.Controls.Add(nextButton)
+        Return pager
+    End Function
+
+    Private Sub ChangeReceiptsPage(pageIndex As Integer)
+        _receiptsPageIndex = pageIndex
+        ShowReceiptsSection()
+    End Sub
+
     Private Sub ShowUnavailableSection(title As String)
         Dim section = CreateSectionLayout(title)
         section.Controls.Add(CreateEmptyStateLabel("No hay datos disponibles para esta seccion con la respuesta actual de la API."), 0, 1)
@@ -651,7 +846,8 @@ Public Class MainForm
     Private Sub ShowGridSection(
         title As String,
         columns As String(),
-        rows As List(Of String()))
+        rows As List(Of String()),
+        Optional footer As Control = Nothing)
 
         If rows.Count = 0 Then
             ShowUnavailableSection(title)
@@ -682,6 +878,13 @@ Public Class MainForm
         For Each column As DataGridViewColumn In grid.Columns
             column.SortMode = DataGridViewColumnSortMode.NotSortable
         Next
+
+        If footer IsNot Nothing Then
+            section.RowCount = 3
+            section.RowStyles.Add(
+                New RowStyle(SizeType.Absolute, 50))
+            section.Controls.Add(footer, 0, 2)
+        End If
 
         section.Controls.Add(grid, 0, 1)
         SetContent(section)
@@ -972,6 +1175,16 @@ Public Class MainForm
         End If
 
         Return If(description, "").Trim()
+    End Function
+
+    Private Shared Function FormatAmount(value As Decimal?) As String
+        If Not value.HasValue Then
+            Return ""
+        End If
+
+        Return value.Value.ToString(
+            "N2",
+            CultureInfo.GetCultureInfo("es-AR"))
     End Function
 
     Private Shared Function FormatDate(value As DateTime?) As String

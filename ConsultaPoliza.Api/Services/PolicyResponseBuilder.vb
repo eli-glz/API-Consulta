@@ -68,6 +68,38 @@ Namespace ConsultaPoliza.Api.Services
             "   AND A.DNULLDATE IS NULL " &
             " ORDER BY A.NRECOWNER, A.SRECTYPE, A.DEFFECDATE DESC"
 
+        Private Const ReceiptsQuery As String =
+            "SELECT P.NRECEIPT, P.DISSUEDAT, P.DEFFECDATE, P.DEXPIRDAT, " &
+            "       P.DPAYDATE, P.DLIMITDATE, " &
+            "       C.SSHORT_DES AS CURRENCY_SYMBOL, " &
+            "       P.NPREMIUM, " &
+            "       CASE WHEN P.NSTATUS_PRE = 3 THEN 0 ELSE P.NBALANCE END AS NBALANCE, " &
+            "       P.NSTATUS_PRE, S.SDESCRIPT AS STATUS_DESCRIPTION, " &
+            "       P.DNULLDATE, P.NNULLCODE, A.SDESCRIPT AS NULL_DESCRIPTION, " &
+            "       CASE P.SSITUATION " &
+            "           WHEN '1' THEN 'Compensado' " &
+            "           WHEN '2' THEN 'No Compensado' " &
+            "           ELSE NULL " &
+            "       END AS RECEIPT_SITUATION, " &
+            "       TRUNC(P.DEXPIRDAT, 'MM') AS SECOND_DUE_DATE " &
+            "  FROM PREMIUM P " &
+            "  LEFT JOIN TABLE11 C " &
+            "         ON C.NCODIGINT = P.NCURRENCY AND C.SSTATREGT = '1' " &
+            "  LEFT JOIN TABLE19 S " &
+            "         ON S.NSTATUS_PRE = P.NSTATUS_PRE AND S.SSTATREGT = '1' " &
+            "  LEFT JOIN TABLE95 A " &
+            "         ON A.NNULLCODE = P.NNULLCODE AND A.SSTATREGT = '1' " &
+            " WHERE P.SCERTYPE = :certificateType " &
+            "   AND P.NBRANCH = :branchCode " &
+            "   AND P.NPRODUCT = :productCode " &
+            "   AND P.NPOLICY = :policyNumber " &
+            "   AND NVL(P.NCERTIF, 0) = :certificateNumber " &
+            "   AND P.NDIGIT = 0 " &
+            "   AND P.NPAYNUMBE = 0 " &
+            "   AND TRUNC(P.DEFFECDATE) <= " &
+            "       TRUNC(NVL(:effectiveDate, P.DEFFECDATE)) " &
+            " ORDER BY P.DEFFECDATE, P.NRECEIPT"
+
         Private ReadOnly _reaGeneralPackage As IReaGeneralPackage
 
         Public Sub New(reaGeneralPackage As IReaGeneralPackage)
@@ -99,8 +131,9 @@ Namespace ConsultaPoliza.Api.Services
                 policy.FechaAnulacion,
                 FormatCodeDescription(policy.MotivoSuspensionCodigo, policy.MotivoSuspensionDescripcion))
             Dim roles = GetRoles(connection, policy, cancellationToken)
+            Dim receipts = GetReceipts(connection, policy, effectiveDate, cancellationToken)
 
-            Return New PolicyResponse(
+            Dim response = New PolicyResponse(
                 policy.NumeroPoliza.ToString(),
                 FormatCodeDescription(policy.EstadoCodigo, policy.EstadoDescripcion),
                 clientName,
@@ -117,6 +150,67 @@ Namespace ConsultaPoliza.Api.Services
                 FormatCodeDescription(policy.FrecuenciaPagoCodigo, policy.FrecuenciaPagoDescripcion),
                 statusDetail,
                 roles)
+                
+                response.Recibos = receipts
+                Return response
+        End Function
+
+
+
+        Private Shared Function GetReceipts(
+            connection As OracleConnection,
+            policy As PolicyBaseData,
+            effectiveDate As DateTime?,
+            cancellationToken As CancellationToken) As List(Of PolicyReceiptResponse)
+
+            Dim receipts As New List(Of PolicyReceiptResponse)()
+            Dim effectiveDateValue As Object = DBNull.Value
+
+            If effectiveDate.HasValue Then
+                effectiveDateValue = effectiveDate.Value
+            End If
+
+            Using command = connection.CreateCommand()
+                command.CommandText = ReceiptsQuery
+                command.CommandType = CommandType.Text
+                command.BindByName = True
+                command.Parameters.Add("certificateType", OracleDbType.Varchar2, policy.TipoCertificado, ParameterDirection.Input)
+                command.Parameters.Add("branchCode", OracleDbType.Decimal, policy.RamoCodigo, ParameterDirection.Input)
+                command.Parameters.Add("productCode", OracleDbType.Decimal, policy.ProductoCodigo, ParameterDirection.Input)
+                command.Parameters.Add("policyNumber", OracleDbType.Decimal, policy.NumeroPoliza, ParameterDirection.Input)
+                command.Parameters.Add("certificateNumber", OracleDbType.Decimal, policy.NumeroCertificado, ParameterDirection.Input)
+                command.Parameters.Add("effectiveDate", OracleDbType.Date, effectiveDateValue, ParameterDirection.Input)
+
+                Using reader = command.ExecuteReader()
+                    While reader.Read()
+                        cancellationToken.ThrowIfCancellationRequested()
+
+                        receipts.Add(New PolicyReceiptResponse With {
+                            .NumeroRecibo = GetLong(reader, "NRECEIPT"),
+                            .FechaEmision = GetDateTime(reader, "DISSUEDAT"),
+                            .InicioVigencia = GetDateTime(reader, "DEFFECDATE"),
+                            .FinVigencia = GetDateTime(reader, "DEXPIRDAT"),
+                            .FechaUltimoPago = GetDateTime(reader, "DPAYDATE"),
+                            .FechaVencimiento = GetDateTime(reader, "DLIMITDATE"),
+                            .Moneda = GetString(reader, "CURRENCY_SYMBOL"),
+                            .Premio = GetDecimalOrNull(reader, "NPREMIUM"),
+                            .Saldo = GetDecimalOrNull(reader, "NBALANCE"),
+                            .Estado = FormatCodeDescription(
+                                GetIntegerOrNull(reader, "NSTATUS_PRE"),
+                                GetString(reader, "STATUS_DESCRIPTION")),
+                            .FechaAnulacion = GetDateTime(reader, "DNULLDATE"),
+                            .CodigoAnulacion = FormatCodeDescription(
+                                GetIntegerOrNull(reader, "NNULLCODE"),
+                                GetString(reader, "NULL_DESCRIPTION")),
+                            .Situacion = GetString(reader, "RECEIPT_SITUATION"),
+                            .FechaSegundoVencimiento =
+                                GetDateTime(reader, "SECOND_DUE_DATE")
+                        })
+                    End While
+                End Using
+            End Using
+
+            Return receipts
         End Function
 
         Private Shared Function GetRoles(
@@ -239,6 +333,30 @@ Namespace ConsultaPoliza.Api.Services
             End If
 
             Return Convert.ToInt32(reader.GetValue(ordinal), CultureInfo.InvariantCulture)
+        End Function
+
+        Private Shared Function GetLong(
+            reader As OracleDataReader,
+            columnName As String) As Long
+
+            Return Convert.ToInt64(
+                reader.GetValue(reader.GetOrdinal(columnName)),
+                CultureInfo.InvariantCulture)
+        End Function
+
+        Private Shared Function GetDecimalOrNull(
+            reader As OracleDataReader,
+            columnName As String) As Decimal?
+
+            Dim ordinal = reader.GetOrdinal(columnName)
+
+            If reader.IsDBNull(ordinal) Then
+                Return Nothing
+            End If
+
+            Return Convert.ToDecimal(
+                reader.GetValue(ordinal),
+                CultureInfo.InvariantCulture)
         End Function
 
         Private Shared Function GetDateTime(reader As OracleDataReader, columnName As String) As DateTime?

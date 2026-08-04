@@ -26,6 +26,7 @@ Public Class PolicyResponse
     Public Property FrecuenciaPago As String
     Public Property EstadoDetalle As PolicyStatusResponse
     Public Property Roles As List(Of PolicyRoleResponse)
+    Public Property Recibos As List(Of PolicyReceiptResponse)
 End Class
 
 Public Class PolicyStatusResponse
@@ -52,4 +53,21 @@ Public Class PolicyRoleAddressResponse
     Public Property Provincia As String
     Public Property Pais As String
     Public Property Email As String
+End Class
+
+Public Class PolicyReceiptResponse
+    Public Property NumeroRecibo As Long
+    Public Property FechaEmision As DateTime?
+    Public Property InicioVigencia As DateTime?
+    Public Property FinVigencia As DateTime?
+    Public Property FechaUltimoPago As DateTime?
+    Public Property FechaVencimiento As DateTime?
+    Public Property Moneda As String
+    Public Property Premio As Decimal?
+    Public Property Saldo As Decimal?
+    Public Property Estado As String
+    Public Property FechaAnulacion As DateTime?
+    Public Property CodigoAnulacion As String
+    Public Property Situacion As String
+    Public Property FechaSegundoVencimiento As DateTime?
 End Class
