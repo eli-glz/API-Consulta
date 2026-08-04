@@ -176,7 +176,6 @@ Namespace Exporting
             If values.Length = 0 Then
                 Return
             End If
-            
             Dim cellWidth = 14000 \ values.Length
 
             builder.Append("\trowd\trgaph108")

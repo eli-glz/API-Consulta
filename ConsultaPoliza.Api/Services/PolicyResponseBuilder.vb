@@ -150,8 +150,8 @@ Namespace ConsultaPoliza.Api.Services
                 FormatCodeDescription(policy.FrecuenciaPagoCodigo, policy.FrecuenciaPagoDescripcion),
                 statusDetail,
                 roles)
-                response.Recibos = receipts
-                Return response
+            response.Recibos = receipts
+            Return response
         End Function
 
 
