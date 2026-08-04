@@ -64,6 +64,10 @@ Namespace Exporting
             Dim table = CreatePrintableTable(sourceTable)
             Dim document As New Document()
 
+            If table.Columns.Count = 0 Then
+                Throw New InvalidOperationException("No hay columnas para exportar.")
+            End If
+
             document.Info.Title = title
             document.Styles("Normal").Font.Name = "Segoe UI"
             document.Styles("Normal").Font.Size = Unit.FromPoint(8)
@@ -169,7 +173,10 @@ Namespace Exporting
             builder As StringBuilder,
             values As String(),
             isHeader As Boolean)
-
+            If values.Length = 0 Then
+                Return
+            End If
+            
             Dim cellWidth = 14000 \ values.Length
 
             builder.Append("\trowd\trgaph108")

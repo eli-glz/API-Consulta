@@ -1,6 +1,6 @@
 # Contexto - ConsultaPoliza
 
-Ultima actualizacion: 2026-07-24.
+Ultima actualizacion: 2026-08-04.
 
 ## Objetivo
 
@@ -18,7 +18,6 @@ de efecto, y mostrar sus datos. La solucion esta en
 - `GET /api/ramos` devuelve el catalogo para el desplegable.
 - `GET /api/polizas?ramo=...&numeroPoliza=...&certificado=...&fechaEfecto=...`
   realiza la nueva busqueda completa.
-- `GET /api/polizas/{numeroPoliza}` se mantiene por compatibilidad.
 - Ramo y poliza deben ser positivos; certificado puede ser cero; fecha de
   efecto es obligatoria.
 - La solucion compila con 0 errores y 0 advertencias.
@@ -186,7 +185,6 @@ No crear funciones, procedures, packages ni otros objetos en Oracle.
 - `ConsultaPoliza.Api/Options/OraclePolicyOptions.vb`: opcion de conexion.
 - `ConsultaPoliza.WinForms/ApiClient.vb`: cliente HTTP y errores.
 - `ConsultaPoliza.WinForms/MainForm.vb`: interfaz de consulta.
-- `consulta_poliza_solo_tablas.sql`: SELECT de analisis equivalente, sin package.
 - `README.md`: configuracion y comandos de ejecucion.
 
 ## Ejecucion
@@ -244,7 +242,7 @@ Validacion posterior a la migracion del 2026-07-24:
   `7` con certificado `0` y fecha `24/07/2026`, y navego correctamente al nodo
   `Roles`.
 - Para la pestaña `Estado`, se validaron metadatos y datos en Oracle mediante
-  consultas de solo lectura con `tools/OracleSearchProbe`. No se encontro salida
+  consultas auxiliares de solo lectura. No se encontro salida
   util para la poliza de prueba en `GSCO008PKG.REAEXPIR_STATUS_GSCO009`, pero si
   se confirmaron las tablas reales. `GET /api/polizas?ramo=7&numeroPoliza=1065691&certificado=0&fechaEfecto=2026-07-24`
   devolvio `estado = "6 - Terminada"` y `estadoDetalle` con
@@ -269,3 +267,18 @@ Validacion posterior a la migracion del 2026-07-24:
   `3000`, localidad `17576 - PUEBLO NUEVO`, provincia `21 - Santa Fe` y pais
   `Argentina`; los dos primeros incluyen
   `PruebaSistemas@galiciaseguros.com.ar`.
+
+## Limpieza del repositorio
+
+El 2026-08-04 se eliminaron las herramientas temporales usadas para investigar
+Oracle (`tools/OracleCoverageProbe`, `tools/OracleSearchProbe` y
+`tools/OracleViewProbe`), sus salidas `bin`/`obj`, el SQL independiente de
+analisis `consulta_poliza_solo_tablas.sql` y los logs de prueba de IIS Express.
+Estos archivos no forman parte de la API, WinForms ni de la solucion y no son
+necesarios para compilar o ejecutar el proyecto.
+
+Tambien se retiro el flujo antiguo `GET /api/polizas/{numeroPoliza}`, junto con
+`GetByNumberAsync` y su consulta Oracle. La unica consulta de polizas vigente es
+`GET /api/polizas?ramo=...&numeroPoliza=...&certificado=...&fechaEfecto=...`.
+La ruta convencional `api/{controller}/{id}` tambien fue eliminada; la API usa
+exclusivamente las rutas por atributos declaradas en sus controladores.

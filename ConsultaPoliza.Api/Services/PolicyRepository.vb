@@ -9,59 +9,11 @@ Imports Oracle.ManagedDataAccess.Client
 
 Namespace ConsultaPoliza.Api.Services
     Public Interface IPolicyRepository
-        Function GetByNumberAsync(policyNumber As String, cancellationToken As CancellationToken) As Task(Of PolicyResponse)
-
         Function SearchAsync(criteria As PolicySearchCriteria, cancellationToken As CancellationToken) As Task(Of PolicyResponse)
     End Interface
 
     Public Class OraclePolicyRepository
         Implements IPolicyRepository
-
-        Private Const PolicyByNumberQuery As String =
-            "SELECT PO.NPOLICY, CE.NCERTIF, PO.SCERTYPE, PO.NBRANCH, " &
-            "       CE.NPRODUCT, CE.SCLIENT, CE.DSTARTDATE, CE.DEXPIRDAT, " &
-            "       PO.STYP_MODULE, " &
-            "       COALESCE(CE.SSTATUSVA, PO.SSTATUS_POL) AS STATUS_CODE, " &
-            "       ST.SDESCRIPT AS STATUS_DESCRIPTION, " &
-            "       CS.NFACESTATUS AS FACE_STATUS_CODE, " &
-            "       FS.SDESCRIPT AS FACE_STATUS_DESCRIPTION, " &
-            "       COALESCE(CE.NNULLCODE, PO.NNULLCODE) AS NULL_CODE, " &
-            "       NC.SDESCRIPT AS NULL_DESCRIPTION, " &
-            "       COALESCE(CE.DNULLDATE, PO.DNULLDATE) AS NULL_DATE, " &
-            "       CE.NSUS_REASON AS SUSPENSION_REASON_CODE, " &
-            "       SR.SDESCRIPT AS SUSPENSION_REASON_DESCRIPTION, " &
-            "       COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) AS PAY_FREQUENCY_CODE, " &
-            "       PF.SDESCRIPT AS PAY_FREQUENCY_DESCRIPTION " &
-            "  FROM POLICY PO " &
-            "  INNER JOIN CERTIFICAT CE " &
-            "          ON CE.NBRANCH = PO.NBRANCH " &
-            "         AND CE.NPOLICY = PO.NPOLICY " &
-            "         AND CE.SCERTYPE = PO.SCERTYPE " &
-            "         AND CE.SCLIENT = PO.SCLIENT " &
-            "  LEFT JOIN TABLE181 ST " &
-            "         ON ST.SSTATUSVA = COALESCE(CE.SSTATUSVA, PO.SSTATUS_POL) " &
-            "        AND ST.SSTATREGT = '1' " &
-            "  LEFT JOIN CERT_STATUS CS " &
-            "         ON CS.SCERTYPE = CE.SCERTYPE " &
-            "        AND CS.NBRANCH = CE.NBRANCH " &
-            "        AND CS.NPRODUCT = CE.NPRODUCT " &
-            "        AND CS.NPOLICY = CE.NPOLICY " &
-            "        AND CS.NCERTIF = CE.NCERTIF " &
-            "  LEFT JOIN TABLE6765 FS " &
-            "         ON FS.NFACESTATUS = CS.NFACESTATUS " &
-            "        AND FS.SSTATREGT = '1' " &
-            "  LEFT JOIN TABLE13 NC " &
-            "         ON NC.NNULLCODE = COALESCE(CE.NNULLCODE, PO.NNULLCODE) " &
-            "        AND NC.SSTATREGT = '1' " &
-            "  LEFT JOIN TABLE5566 SR " &
-            "         ON SR.NSUS_REASON = CE.NSUS_REASON " &
-            "        AND SR.SSTATREGT = '1' " &
-            "  LEFT JOIN TABLE36 PF " &
-            "         ON PF.NPAYFREQ = COALESCE(CE.NPAYFREQ, PO.NPAYFREQ) " &
-            "        AND PF.SSTATREGT = '1' " &
-            " WHERE PO.NPOLICY = :policyNumber " &
-            " ORDER BY CASE WHEN CE.NCERTIF = 0 THEN 0 ELSE 1 END, CE.NCERTIF " &
-            " FETCH FIRST 1 ROWS ONLY"
 
         Private Const PolicySearchQuery As String =
             "SELECT PO.NPOLICY, CE.NCERTIF, PO.SCERTYPE, PO.NBRANCH, " &
@@ -119,42 +71,16 @@ Namespace ConsultaPoliza.Api.Services
             _policyResponseBuilder = policyResponseBuilder
         End Sub
 
-        Public Function GetByNumberAsync(policyNumber As String, cancellationToken As CancellationToken) As Task(Of PolicyResponse) Implements IPolicyRepository.GetByNumberAsync
-            Dim parsedPolicyNumber = Long.Parse(policyNumber, CultureInfo.InvariantCulture)
-
-            Return Task.Run(
-                Function()
-                    Return Query(
-                        PolicyByNumberQuery,
-                        Sub(command)
-                            command.Parameters.Add("policyNumber", OracleDbType.Decimal, parsedPolicyNumber, ParameterDirection.Input)
-                        End Sub,
-                        Nothing,
-                        cancellationToken)
-                End Function,
-                cancellationToken)
-        End Function
-
         Public Function SearchAsync(criteria As PolicySearchCriteria, cancellationToken As CancellationToken) As Task(Of PolicyResponse) Implements IPolicyRepository.SearchAsync
             Return Task.Run(
                 Function()
-                    Return Query(
-                        PolicySearchQuery,
-                        Sub(command)
-                            command.Parameters.Add("branchCode", OracleDbType.Decimal, criteria.RamoCodigo, ParameterDirection.Input)
-                            command.Parameters.Add("policyNumber", OracleDbType.Decimal, criteria.NumeroPoliza, ParameterDirection.Input)
-                            command.Parameters.Add("certificateNumber", OracleDbType.Decimal, criteria.NumeroCertificado, ParameterDirection.Input)
-                        End Sub,
-                        criteria.FechaEfecto,
-                        cancellationToken)
+                    Return Query(criteria, cancellationToken)
                 End Function,
                 cancellationToken)
         End Function
 
         Private Function Query(
-            commandText As String,
-            addParameters As Action(Of OracleCommand),
-            effectiveDate As DateTime?,
+            criteria As PolicySearchCriteria,
             cancellationToken As CancellationToken) As PolicyResponse
 
             If String.IsNullOrWhiteSpace(_options.ConnectionString) Then
@@ -171,10 +97,12 @@ Namespace ConsultaPoliza.Api.Services
                     Dim baseData As PolicyBaseData
 
                     Using command = connection.CreateCommand()
-                        command.CommandText = commandText
+                        command.CommandText = PolicySearchQuery
                         command.CommandType = CommandType.Text
                         command.BindByName = True
-                        addParameters(command)
+                        command.Parameters.Add("branchCode", OracleDbType.Decimal, criteria.RamoCodigo, ParameterDirection.Input)
+                        command.Parameters.Add("policyNumber", OracleDbType.Decimal, criteria.NumeroPoliza, ParameterDirection.Input)
+                        command.Parameters.Add("certificateNumber", OracleDbType.Decimal, criteria.NumeroCertificado, ParameterDirection.Input)
 
                         Using reader = command.ExecuteReader(CommandBehavior.SingleRow)
                             cancellationToken.ThrowIfCancellationRequested()
@@ -206,7 +134,7 @@ Namespace ConsultaPoliza.Api.Services
                         End Using
                     End Using
 
-                    Return _policyResponseBuilder.Build(connection, baseData, effectiveDate, cancellationToken)
+                    Return _policyResponseBuilder.Build(connection, baseData, criteria.FechaEfecto, cancellationToken)
                 Finally
                     OracleReadOnlySession.Rollback(connection)
                 End Try

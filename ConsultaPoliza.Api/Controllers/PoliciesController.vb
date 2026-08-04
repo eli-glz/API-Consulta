@@ -57,24 +57,10 @@ Namespace ConsultaPoliza.Api.Controllers
                 fechaEfecto.Value.Date)
 
             Return Await FindPolicyAsync(
-                Function() _policyRepository.SearchAsync(criteria, CancellationToken.None),
+                criteria,
                 numeroPoliza,
-                ramo,
-                certificado)
-        End Function
-
-        <HttpGet>
-        <Route("{numeroPoliza}")>
-        Public Async Function GetByNumber(numeroPoliza As String) As Task(Of IHttpActionResult)
-            If Not IsValidPolicyNumber(numeroPoliza) Then
-                Return BadRequestMessage("El numero de poliza es obligatorio y debe contener solamente numeros.")
-            End If
-
-            Return Await FindPolicyAsync(
-                Function() _policyRepository.GetByNumberAsync(numeroPoliza.Trim(), CancellationToken.None),
-                numeroPoliza,
-                Nothing,
-                Nothing)
+                ramo.Value,
+                certificado.Value)
         End Function
 
         Private Function BadRequestMessage(message As String) As IHttpActionResult
@@ -86,13 +72,13 @@ Namespace ConsultaPoliza.Api.Controllers
         End Function
 
         Private Async Function FindPolicyAsync(
-            findPolicy As Func(Of Task(Of PolicyResponse)),
+            criteria As PolicySearchCriteria,
             policyNumber As String,
-            branchCode As Integer?,
-            certificateNumber As Integer?) As Task(Of IHttpActionResult)
+            branchCode As Integer,
+            certificateNumber As Integer) As Task(Of IHttpActionResult)
 
             Try
-                Dim policy = Await findPolicy()
+                Dim policy = Await _policyRepository.SearchAsync(criteria, CancellationToken.None)
                 If policy Is Nothing Then
                     Return Content(
                         HttpStatusCode.NotFound,
@@ -106,8 +92,8 @@ Namespace ConsultaPoliza.Api.Controllers
                 Trace.TraceError(
                     "Oracle connection failed while consulting policy {0}, branch {1}, certificate {2}: {3}",
                     policyNumber,
-                    If(branchCode.HasValue, branchCode.Value.ToString(CultureInfo.InvariantCulture), ""),
-                    If(certificateNumber.HasValue, certificateNumber.Value.ToString(CultureInfo.InvariantCulture), ""),
+                    branchCode.ToString(CultureInfo.InvariantCulture),
+                    certificateNumber.ToString(CultureInfo.InvariantCulture),
                     ex)
 
                 Return Content(
@@ -120,8 +106,8 @@ Namespace ConsultaPoliza.Api.Controllers
                 Trace.TraceError(
                     "Error consulting policy {0}, branch {1}, certificate {2}: {3}",
                     policyNumber,
-                    If(branchCode.HasValue, branchCode.Value.ToString(CultureInfo.InvariantCulture), ""),
-                    If(certificateNumber.HasValue, certificateNumber.Value.ToString(CultureInfo.InvariantCulture), ""),
+                    branchCode.ToString(CultureInfo.InvariantCulture),
+                    certificateNumber.ToString(CultureInfo.InvariantCulture),
                     ex)
 
                 Return Content(

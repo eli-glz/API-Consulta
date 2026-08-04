@@ -75,9 +75,6 @@ usa como fecha de corte para funciones que dependen de vigencia. Las
 descripciones de ramo, producto, asegurado y cobertura principal se resuelven
 mediante funciones de `REAGENERALPKG`.
 
-El endpoint anterior `GET /api/polizas/{numeroPoliza}` se conserva por
-compatibilidad.
-
 ## Seguridad de solo lectura
 
 La API abre las operaciones Oracle con `SET TRANSACTION READ ONLY` y ejecuta `ROLLBACK` al terminar. Esto evita cambios directos desde las consultas de la API. Para una garantia completa, el usuario Oracle debe tener permisos solo de consulta y los packages ejecutados no deben realizar escrituras ni usar transacciones autonomas.

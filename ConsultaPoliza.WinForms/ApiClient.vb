@@ -5,12 +5,17 @@ Imports System.Globalization
 Imports System.Text.Json
 
 Public Class ApiClient
+    Implements IDisposable
     Private ReadOnly _httpClient As HttpClient
 
     Public Sub New(baseUrl As String)
         _httpClient = New HttpClient() With {
             .BaseAddress = New Uri(baseUrl.TrimEnd("/"c) & "/")
         }
+    End Sub
+
+    Public Sub Dispose() Implements IDisposable.Dispose
+        _httpClient.Dispose()
     End Sub
 
     Public Async Function GetBranchesAsync() As Task(Of List(Of BranchResponse))

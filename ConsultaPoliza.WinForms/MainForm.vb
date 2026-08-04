@@ -335,7 +335,6 @@ Public Class MainForm
         policyNode.Nodes.Add(CreateNode("Clausulas", NodeClauses))
         policyNode.Nodes.Add(CreateNode("Descuentos / Recargos", NodeDiscounts))
         policyNode.Nodes.Add(CreateNode("Movimientos historicos", NodeMovements))
-        
         Dim receiptsNode = CreateNode("Recibos", NodeReceipts)
         If policy IsNot Nothing AndAlso
         policy.Recibos IsNot Nothing AndAlso
@@ -357,7 +356,6 @@ Public Class MainForm
         End If
 
         policyNode.Nodes.Add(receiptsNode)
-        
         Dim addressNode = CreateNode("Direccion de poliza", NodePolicyAddress)
         Dim addressItemNode = CreateNode("Direccion de poliza 1", NodePolicyAddressItem)
         addressItemNode.Nodes.Add(CreateNode("Telefonos", NodePhones))

@@ -5,7 +5,9 @@
         Application.SetHighDpiMode(HighDpiMode.SystemAware)
         Application.EnableVisualStyles()
         Application.SetCompatibleTextRenderingDefault(False)
-        Application.Run(New MainForm(New ApiClient("http://localhost:5045")))
+        Using apiClient As New ApiClient("http://localhost:5045")
+            Application.Run(New MainForm(apiClient))
+        End Using
     End Sub
 
 End Module
